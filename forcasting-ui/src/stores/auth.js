@@ -1,58 +1,67 @@
 // src/stores/auth.js
 
-import { defineStore } from 'pinia';
-import apiClient from '../api';
-import router from '../router';
+import { defineStore } from 'pinia'
+import apiClient from '@/api'
+import router from '@/router'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     token: localStorage.getItem('jwt_token') || null,
-    user: null,
+    user: JSON.parse(localStorage.getItem('user')) || null,
+    loading: false,
+    error: null
   }),
+
   getters: {
-    isAuthenticated: (state) => !!state.token,
+    isAuthenticated: (state) => !!state.token
   },
+
   actions: {
-    async login(credentials) {
+    async login({ email, password }) {
+      this.loading = true
+      this.error = null
+
       try {
-        const response = await apiClient.post('/login', credentials);
-        const token = response.data.access_token;
+        // FastAPI usa OAuth2PasswordRequestForm → form-urlencoded
+        const form = new URLSearchParams()
+        form.append('username', email)   // ⚠️ backend espera "username"
+        form.append('password', password)
 
-        // Guarda el token en el estado y en localStorage
-        this.token = token;
-        localStorage.setItem('jwt_token', token);
+        const { data } = await apiClient.post('/token', form, {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
+        })
 
-        // Obtiene los datos del usuario
-        await this.fetchUser();
-        
-        // Redirige al dashboard
-        router.push('/');
+        // Guardar token
+        this.token = data.access_token
+        localStorage.setItem('jwt_token', data.access_token)
+
+        // Usuario SIMULADO (backend aún no lo devuelve)
+        this.user = {
+          username: email,
+          role: 'admin'
+        }
+        localStorage.setItem('user', JSON.stringify(this.user))
+
+        // Redirigir al dashboard
+        router.push('/dashboard')
 
       } catch (error) {
-        alert("Error en el email o la contraseña.");
-        console.error("Error en el login:", error);
+        this.error = 'Usuario o contraseña incorrectos'
+        console.error('Error login:', error)
+      } finally {
+        this.loading = false
       }
     },
-    async fetchUser() {
-      if (this.token) {
-        try {
-          const response = await apiClient.get('/me');
-          this.user = response.data;
-        } catch (error) {
-          // Si el token es inválido, limpia todo
-          this.logout();
-          console.error("Error al obtener datos del usuario:", error);
-        }
-      }
-    },
+
     logout() {
-      // Limpia el estado
-      this.token = null;
-      this.user = null;
-      localStorage.removeItem('jwt_token');
-      
-      // Redirige al login
-      router.push('/login');
-    },
-  },
-});
+      this.token = null
+      this.user = null
+      this.error = null
+      localStorage.removeItem('jwt_token')
+      localStorage.removeItem('user')
+      router.push('/login')
+    }
+  }
+})

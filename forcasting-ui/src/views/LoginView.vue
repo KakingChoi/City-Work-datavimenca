@@ -9,19 +9,19 @@
             max-height="80"
             contain
             class="mb-6"
-          ></v-img>
+          />
 
-          <p class="text-h5 font-weight-bold text-primary">CityWorks Insight</p>
+          <p class="text-h5 font-weight-bold text-primary">DATA VIMENCA</p>
           <p class="text-medium-emphasis mb-6">Iniciar Sesión</p>
 
           <v-form @submit.prevent="handleLogin">
             <v-alert
-              v-if="authStore.error"
+              v-if="auth.error"
               type="error"
               density="compact"
               class="mb-4"
             >
-              {{ authStore.error }}
+              {{ auth.error }}
             </v-alert>
 
             <v-text-field
@@ -33,7 +33,7 @@
               required
               density="compact"
               bg-color="white"
-            ></v-text-field>
+            />
 
             <v-text-field
               v-model="password"
@@ -46,10 +46,10 @@
               required
               density="compact"
               bg-color="white"
-            ></v-text-field>
+            />
 
             <v-btn
-              :loading="authStore.loading"
+              :loading="auth.loading"
               type="submit"
               color="primary"
               block
@@ -66,26 +66,25 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { useAuthStore } from '../stores/auth';
-// Importa el logo desde la carpeta de assets
-import logo from '@/assets/miplogo.png';
+import { ref } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+import logo from '@/assets/miplogo.png'
 
-const email = ref('');
-const password = ref('');
-const showPassword = ref(false);
-const authStore = useAuthStore();
+const email = ref('')
+const password = ref('')
+const showPassword = ref(false)
+const auth = useAuthStore()
 
 const handleLogin = () => {
-  authStore.login({
+  auth.login({
     email: email.value,
-    password: password.value,
-  });
-};
+    password: password.value
+  })
+}
 </script>
 
 <style scoped>
 .fill-height {
-  background-color: #f0f2f50c; /* Fondo gris claro para toda la página */
+  background-color: #f0f2f50c;
 }
 </style>
