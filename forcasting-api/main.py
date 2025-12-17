@@ -4,6 +4,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from google.cloud import bigquery
 import pandas as pd
 import io
+import os
+
+# =========================
+# CONFIG
+# =========================
+# Puedes dejarlo fijo así, o pasarlo por variable de entorno.
+SERVICE_ACCOUNT_KEY_PATH = os.getenv(
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    "poc-data-vimenca-9870db584951.json"
+)
+
+BQ_TABLE_ID = "poc-data-vimenca.ds_data_vimenca.forecast_final"
 
 # =========================
 # APP
@@ -11,15 +23,11 @@ import io
 app = FastAPI(title="Vimenca Forecast System")
 
 # =========================
-# CORS (IMPORTANTE PARA FRONTEND / CLOUD RUN)
-# - Un solo middleware (no duplicar)
-# - No usar "*" con allow_credentials=True
+# CORS
 # =========================
 ALLOWED_ORIGINS = [
     "http://localhost:5174",
     "http://localhost:5175",
-    # Si luego tienes dominio real del frontend, agrégalo aquí:
-    # "https://tu-frontend.com",
 ]
 
 app.add_middleware(
@@ -31,7 +39,6 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-# (Opcional pero útil) Responder explícitamente a preflight
 @app.options("/{path:path}")
 async def preflight_handler(path: str, response: Response):
     return Response(status_code=204)
@@ -39,25 +46,33 @@ async def preflight_handler(path: str, response: Response):
 # =========================
 # OAUTH2
 # =========================
-# Recomendado: tokenUrl="token" (sin slash), pero funciona igual
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# =========================
+# HELPERS
+# =========================
+def get_bq_client() -> bigquery.Client:
+    """
+    Crea un cliente de BigQuery usando SIEMPRE la key indicada.
+    """
+    if not os.path.exists(SERVICE_ACCOUNT_KEY_PATH):
+        raise HTTPException(
+            status_code=500,
+            detail=f"No se encontró el archivo de credenciales: {SERVICE_ACCOUNT_KEY_PATH}"
+        )
+
+    try:
+        return bigquery.Client.from_service_account_json(SERVICE_ACCOUNT_KEY_PATH)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creando cliente BigQuery: {str(e)}")
 
 # =========================
 # LOGIN
 # =========================
 @app.post("/token")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    """
-    IMPORTANTE:
-    Este endpoint espera x-www-form-urlencoded:
-      username=...&password=...
-    (No JSON)
-    """
     if form_data.username == "admin" and form_data.password == "vimenca2025":
-        return {
-            "access_token": "token-secreto-vimenca",
-            "token_type": "bearer"
-        }
+        return {"access_token": "token-secreto-vimenca", "token_type": "bearer"}
 
     raise HTTPException(status_code=400, detail="Usuario o contraseña incorrectos")
 
@@ -99,17 +114,14 @@ async def upload_forecast(
 
         final_df.rename(columns={"Period": "period"}, inplace=True)
 
-        # BigQuery
-        client = bigquery.Client()
-        table_id = "poc-data-vimenca.ds_data_vimenca.forecast_final"
+        # BigQuery (USANDO KEY)
+        client = get_bq_client()
 
-        job_config = bigquery.LoadJobConfig(
-            write_disposition="WRITE_TRUNCATE"
-        )
+        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
 
         client.load_table_from_dataframe(
             final_df,
-            table_id,
+            BQ_TABLE_ID,
             job_config=job_config
         ).result()
 
@@ -118,6 +130,8 @@ async def upload_forecast(
             "rows": len(final_df)
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -127,11 +141,11 @@ async def upload_forecast(
 @app.get("/view-data")
 async def view_data(token: str = Depends(oauth2_scheme)):
     try:
-        client = bigquery.Client()
+        client = get_bq_client()
 
-        query = """
+        query = f"""
         SELECT *
-        FROM `poc-data-vimenca.ds_data_vimenca.forecast_final`
+        FROM `{BQ_TABLE_ID}`
         ORDER BY date DESC, period ASC
         LIMIT 100
         """
@@ -139,6 +153,8 @@ async def view_data(token: str = Depends(oauth2_scheme)):
         rows = client.query(query).result()
         return [dict(row) for row in rows]
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -146,7 +162,6 @@ async def view_data(token: str = Depends(oauth2_scheme)):
 # LOCAL RUN
 # =========================
 if __name__ == "__main__":
-    import os
     import uvicorn
 
     port = int(os.environ.get("PORT", 8080))
