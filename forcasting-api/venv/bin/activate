@@ -37,7 +37,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="/Users/DTIC/Repos/Source/City-Work-datavimenca/forcasting-api/venv"
+VIRTUAL_ENV="/Users/kchoi/Sistema/CityWorks-proyect/datavimenca/forcasting-api/venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

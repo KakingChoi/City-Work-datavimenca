@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Response
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from google.cloud import bigquery
@@ -11,29 +11,48 @@ import io
 app = FastAPI(title="Vimenca Forecast System")
 
 # =========================
-# CORS (OBLIGATORIO CLOUD RUN)
+# CORS (IMPORTANTE PARA FRONTEND / CLOUD RUN)
+# - Un solo middleware (no duplicar)
+# - No usar "*" con allow_credentials=True
 # =========================
+ALLOWED_ORIGINS = [
+    "http://localhost:5174",
+    "http://localhost:5175",
+    # Si luego tienes dominio real del frontend, agrégalo aquí:
+    # "https://tu-frontend.com",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5175",
-        "http://localhost:5174",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+# (Opcional pero útil) Responder explícitamente a preflight
+@app.options("/{path:path}")
+async def preflight_handler(path: str, response: Response):
+    return Response(status_code=204)
 
 # =========================
 # OAUTH2
 # =========================
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
+# Recomendado: tokenUrl="token" (sin slash), pero funciona igual
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # =========================
 # LOGIN
 # =========================
 @app.post("/token")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    """
+    IMPORTANTE:
+    Este endpoint espera x-www-form-urlencoded:
+      username=...&password=...
+    (No JSON)
+    """
     if form_data.username == "admin" and form_data.password == "vimenca2025":
         return {
             "access_token": "token-secreto-vimenca",
@@ -59,7 +78,7 @@ async def upload_forecast(
         df_aht = pd.read_excel(excel_file, sheet_name="Origins2")
         df_fte = pd.read_excel(excel_file, sheet_name="Origins3")
 
-        def melt_data(df, label):
+        def melt_data(df: pd.DataFrame, label: str) -> pd.DataFrame:
             m = df.melt(
                 id_vars=["Period"],
                 var_name="date",
@@ -122,7 +141,6 @@ async def view_data(token: str = Depends(oauth2_scheme)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # =========================
 # LOCAL RUN

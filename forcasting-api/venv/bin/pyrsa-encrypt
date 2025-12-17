@@ -1,4 +1,4 @@
-#!/Users/DTIC/Repos/Source/City-Work-datavimenca/forcasting-api/venv/bin/python3
+#!/Users/kchoi/Sistema/CityWorks-proyect/datavimenca/forcasting-api/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys
