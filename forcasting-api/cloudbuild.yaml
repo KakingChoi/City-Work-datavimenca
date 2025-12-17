@@ -1,0 +1,25 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  # Se añade la propiedad 'dir' para especificar el directorio de trabajo
+  dir: 'bigquery-gemini-flask-api'
+  args: ['build', '-t', 'us-central1-docker.pkg.dev/poc-mip-cityworks/cityworks-apps/flask-api:$COMMIT_SHA', '.']
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'us-central1-docker.pkg.dev/poc-mip-cityworks/cityworks-apps/flask-api:$COMMIT_SHA']
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+  - 'run'
+  - 'deploy'
+  - 'flask-api-service'
+  - '--image=us-central1-docker.pkg.dev/poc-mip-cityworks/cityworks-apps/flask-api:$COMMIT_SHA'
+  - '--region=us-central1'
+  - '--platform=managed'
+  - '--allow-unauthenticated'
+  - '--add-cloudsql-instances=poc-mip-cityworks:us-central1:cityworks-db'
+  - '--set-secrets=DB_USER=db-user:latest'
+  - '--set-secrets=DB_PASS=db-password:latest'
+  - '--set-secrets=DB_NAME=db-name:latest'
+images:
+- 'us-central1-docker.pkg.dev/poc-mip-cityworks/cityworks-apps/flask-api:$COMMIT_SHA'
+options:
+  logging: CLOUD_LOGGING_ONLY

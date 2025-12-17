@@ -1,0 +1,11 @@
+
+# Secrets
+*.json
+**/*service-account*.json
+**/*credentials*.json
+
+# Secrets
+forcasting-api/*.json
+*.key
+*.pem
+.env

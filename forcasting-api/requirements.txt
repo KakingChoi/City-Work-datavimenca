@@ -1,0 +1,10 @@
+Flask
+google-cloud-aiplatform
+google-cloud-bigquery
+python-dotenv
+Flask-JWT-Extended
+Flask-Cors
+gunicorn # Para producción
+Flask-SQLAlchemy
+mysql-connector-python
+Flask-Cors
