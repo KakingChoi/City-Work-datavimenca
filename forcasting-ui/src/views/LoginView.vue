@@ -25,19 +25,24 @@
             </v-alert>
 
             <v-text-field
-              v-model="email"
-              label="Correo Electrónico"
-              prepend-inner-icon="mdi-email-outline"
-              type="email"
+              v-model.trim="username"
+              label="Usuario"
+              hint="Para pruebas: admin"
+              persistent-hint
+              prepend-inner-icon="mdi-account-outline"
               variant="outlined"
               required
               density="compact"
               bg-color="white"
+              :disabled="auth.loading"
+              @keyup.enter="handleLogin"
             />
 
             <v-text-field
               v-model="password"
               label="Contraseña"
+              hint="Para pruebas: vimenca2025"
+              persistent-hint
               prepend-inner-icon="mdi-lock-outline"
               :type="showPassword ? 'text' : 'password'"
               :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
@@ -46,10 +51,13 @@
               required
               density="compact"
               bg-color="white"
+              :disabled="auth.loading"
+              @keyup.enter="handleLogin"
             />
 
             <v-btn
               :loading="auth.loading"
+              :disabled="auth.loading || !canSubmit"
               type="submit"
               color="primary"
               block
@@ -66,18 +74,24 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import logo from '@/assets/miplogo.png'
 
-const email = ref('')
+const username = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const auth = useAuthStore()
 
-const handleLogin = () => {
-  auth.login({
-    email: email.value,
+const canSubmit = computed(() => {
+  return username.value.length > 0 && password.value.length > 0
+})
+
+const handleLogin = async () => {
+  if (!canSubmit.value || auth.loading) return
+
+  await auth.login({
+    email: username.value,      // mantiene tu store sin cambios (usa "email" como campo)
     password: password.value
   })
 }
